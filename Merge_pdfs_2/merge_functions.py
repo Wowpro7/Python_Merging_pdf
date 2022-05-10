@@ -3,8 +3,10 @@ import os
 
 # import pikepdf # alternative to pypdf2
 
-MERGING_STYLES_LIST = ['Sequence', 'Middle Merger', 'Odd - Even', 'Cut', 'Spin Right']
+MERGING_STYLES_LIST = ['Sequence', 'Middle Merger', 'Odd - Even', 'Cut', 'Spin Right', 'Spin Left']
 
+class Rotation_error(Exception):
+    pass
 
 def check_files_type_validity(first_pdf_path=None, second_pdf_path=None):
     Files_are_valid = 'True'  # this way, because walking around with booleans was too much time consuming, and its
@@ -44,7 +46,7 @@ def check_files_accessibility(first_pdf_path, second_pdf_path):  #
                     Error_message += second_pdf_path + ', '
                 else:
                     Error_message = second_pdf_path
-                Error_message = Error_message + ', this file/s might be broken or password protected'
+                Error_message = Error_message + ',\n this file/s might be broken or password protected'
 
         return temp_dict, Error_message
     except FileNotFoundError as exp:
@@ -187,7 +189,7 @@ def merge_cut_pages_off(pdf_1, pdf_1_page_num, start_page, stop_page, new_pdf):
     return new_pdf
 
 
-def Rotate_Right(pdf_1, pdf_1_page_num, new_pdf, pages_and_rotating_degree):
+def Spin(pdf_1, pdf_1_page_num, Spin_Right, new_pdf, pages_and_rotating_degree):
     """
     :param pages_and_rotating_degree: expected syntax:
         options:
@@ -204,26 +206,36 @@ def Rotate_Right(pdf_1, pdf_1_page_num, new_pdf, pages_and_rotating_degree):
     4. check if the page/s has '-' symbol, if it does split it: <>.split('-') creating 2 items of range to run over.
     else if doesnt have it rotate the page
     '''
+    Rotate_degree_options_list=[0, 90, 180, 270, 360] # the only possible rotating degree
     dictionary_of_rotating_pages = {}
     try:
         list_of_rotating_groups = pages_and_rotating_degree.split(',')  # creating a list of all the rotating groups
         for group in list_of_rotating_groups:
-            pages_range, rotating_degree = group.split(
-                ':')  # split the group to see the pages range and rotating degree
+            pages_range, rotating_degree = group.split(':')  # split the group to see the pages range and rotating degree
             rotating_degree = int(rotating_degree)
+            if rotating_degree not in  Rotate_degree_options_list:
+                raise Rotation_error("You can rotate only in: 0,90,180,270,360 degrees.")
             if '-' in pages_range:
                 start_page, stop_page = pages_range.split('-')  # fetching start and stop page
                 start_page = int(start_page) - 1
                 stop_page = int(stop_page) - 1
+                if start_page < 0 or start_page >= pdf_1_page_num or stop_page < 0 or stop_page >= pdf_1_page_num:
+                    return 'Your requested page is illegal.\nThere is not enough pages in the file or its below 1.'
                 dictionary_of_rotating_pages |= dict.fromkeys(list(range(start_page, stop_page + 1)), rotating_degree)
                 # for i in range(int(start_page), int(stop_page)+1):
                 # new_pdf.addPage(pdf_1.getPage(i).rotateClockwise(int(rotating_degree)))
             else:
                 # new_pdf.addPage(pdf_1.getPage(int(pages_range)).rotateClockwise(int(rotating_degree)))
-                dictionary_of_rotating_pages |= {int(pages_range) - 1: rotating_degree}
+                pages_range = int(pages_range) - 1
+                if pages_range < 0 or pages_range >= pdf_1_page_num :
+                    return 'Your requested page is illegal.\nThere is not enough pages in the file or its below 1.'
+                dictionary_of_rotating_pages |= {pages_range : rotating_degree}
+
+    except Rotation_error as exp:
+        return str(exp)
 
     except Exception:
-        return 'something went horrible wrong, check your page range syntax. refer to: File->Help'
+        return 'try this format for start page: \n<page_number>:<degree(90,180,270)>,<start_page-stop_page>:<degree(90,180,270)>' #'something went horrible wrong, check your page range syntax. refer to: File->Help'
 
     # TODO:
     '''
@@ -234,7 +246,10 @@ def Rotate_Right(pdf_1, pdf_1_page_num, new_pdf, pages_and_rotating_degree):
     '''
     for i in range(pdf_1_page_num):
         if i in dictionary_of_rotating_pages.keys():
-            new_pdf.addPage(pdf_1.getPage(i).rotateClockwise(dictionary_of_rotating_pages[i]))
+            if Spin_Right:
+                new_pdf.addPage(pdf_1.getPage(i).rotateClockwise(dictionary_of_rotating_pages[i]))
+            else:
+                new_pdf.addPage(pdf_1.getPage(i).rotateCounterClockwise(dictionary_of_rotating_pages[i]))
         else:
             new_pdf.addPage(pdf_1.getPage(i))
     return new_pdf
@@ -246,6 +261,7 @@ def define_merging_style(merging_style):
     Middle = None
     cut = None
     Spin_right = None
+    Spin_left = None
 
     for i in merging_style.keys():
         if i == 'Sequence':
@@ -258,8 +274,10 @@ def define_merging_style(merging_style):
             cut = merging_style[i]
         elif i == 'Spin Right':
             Spin_right = merging_style[i]
+        elif i == 'Spin Left':
+            Spin_left = merging_style[i]
 
-    return odd_even, Sequence, Middle, cut, Spin_right
+    return odd_even, Sequence, Middle, cut, Spin_left, Spin_right
 
 
 # def merge(first_pdf_path, second_pdf_path, saving_path=None, first_pdf_leads=True, User_named=None, odd_even=None, Sequence=None,
@@ -268,7 +286,7 @@ def define_merging_style(merging_style):
 def merge(first_pdf_path, second_pdf_path, saving_path=None, first_pdf_leads=True, User_named=None, merging_style={},
           start_page=None, stop_page=None):  # merger two files
 
-    odd_even, Sequence, Middle, cut, Spin_right = define_merging_style(merging_style)
+    odd_even, Sequence, Middle, cut, Spin_left, Spin_right = define_merging_style(merging_style)
 
     filename = check_files_type_validity(first_pdf_path, second_pdf_path)
     if filename != 'True':
@@ -303,9 +321,9 @@ def merge(first_pdf_path, second_pdf_path, saving_path=None, first_pdf_leads=Tru
             return 'Error: Stop page is bigger than the number of pages available'
 
         new_pdf = merge_cut_pages_off(pdf_1, pdf_1_page_num, start_page, stop_page, new_pdf)
-    elif Spin_right:
+    elif Spin_right or Spin_left:
         pages_and_rotating_degree = start_page
-        new_pdf = Rotate_Right(pdf_1, pdf_1_page_num, new_pdf, pages_and_rotating_degree)
+        new_pdf = Spin(pdf_1, pdf_1_page_num, Spin_right, new_pdf, pages_and_rotating_degree)
     elif Middle:  # merge in at starting page
         if first_pdf_path:
             if pdf_1_page_num < start_page:
@@ -323,6 +341,9 @@ def merge(first_pdf_path, second_pdf_path, saving_path=None, first_pdf_leads=Tru
 
     new_pdf_name = create_new_file_name(User_named, first_pdf_leads, first_pdf_path, second_pdf_path)
     # new_pdf.encrypt(user_pwd="123", owner_pwd="123", use_128bit=True)
+    #pdf_1.close()  # close all the opened files
+    #pdf_2.close()
+
     try:
         with open(saving_path+new_pdf_name, 'wb') as pdf:  # create the file
             new_pdf.write(pdf)
@@ -330,8 +351,8 @@ def merge(first_pdf_path, second_pdf_path, saving_path=None, first_pdf_leads=Tru
         return str(exp) + '\n choose a different saving path'
     except FileNotFoundError:
         return 'Your saving path is invalid, please try a different path'
-    except TypeError:
-        return new_pdf_name
+    except TypeError and AttributeError:
+        return new_pdf
     else:
         return new_pdf_name
 

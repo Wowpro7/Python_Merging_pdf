@@ -37,6 +37,7 @@ def main():
     odd_even = False
     cut = False
     Spin_right = False
+    Spin_left = False
 
     while True:
         event, values = window.read()  # event = type of the widget, you can write key value in it and change
@@ -51,8 +52,9 @@ def main():
             odd_even = False
             cut = False
             Spin_right = False
+            Spin_left = False
 
-            if values['options_list'] == 'Middle Merger' or values['options_list'] == 'Cut' or values['options_list'] == 'Spin Right':  # display the additional options
+            if values['options_list'] == 'Middle Merger' or values['options_list'] == 'Cut' or values['options_list'] == 'Spin Right' or values['options_list'] == 'Spin Left':  # display the additional options
                 window['txt_start_page'].update(visible=True)
                 window['input_start_page'].update(value='', visible=True)
                 window['txt_merging_file'].update(visible=False)
@@ -69,6 +71,10 @@ def main():
                 elif values['options_list'] == 'Spin Right': # input format:  <page_number>:<degree(90,180,270)>,<start_page-stop_page>:<degree(90,180,270)>
                     window['input_start_page'].update(value='<page_number>:<degree(90,180,270)>,<start_page-stop_page>:<degree(90,180,270)>')
                     Spin_right = True
+
+                elif values['options_list'] == 'Spin Left': # input format:  <page_number>:<degree(90,180,270)>,<start_page-stop_page>:<degree(90,180,270)>
+                    window['input_start_page'].update(value='<page_number>:<degree(90,180,270)>,<start_page-stop_page>:<degree(90,180,270)>')
+                    Spin_left = True
 
                 else:  # else the cut is 'middle'
                     #window['input_stop_page'].update('')  # reset the chosen page number
@@ -116,12 +122,12 @@ def main():
                         if stop_page < 0:
                             sg.popup_error('"Stop Page" - is invalid page number')  # Shows red error button
                             continue  # start wait for new events
-            elif values['options_list'] == 'Spin Right':
+            elif values['options_list'] == 'Spin Right' or values['options_list'] == 'Spin Left':
                 start_page = values['input_start_page']
 
             user_named_file = values['User_named']
             if user_named_file == '':
-                sg.popup_error('please enter the new file name')  # Shows red error button
+                sg.popup_error('please enter new file name')  # Shows red error button
                 continue
 
             saving_path = values['saving_path'] + '/'#.replace('\\', '/') + '/'  # in case the use added the '/' at he end
@@ -129,18 +135,17 @@ def main():
                 sg.popup_error('please choose where to save')  # Shows red error button
                 continue
 
-            if values['options_list'] != 'Cut' and values['options_list'] != 'Spin Right':
+            if values['options_list'] != 'Cut' and values['options_list'] != 'Spin Right' and values['options_list'] != 'Spin Left':
                 second_path = values['second_input_file']
             else:
                 second_path = None
             first_path = values['first_input_File']
 
-            merging_style = {'Sequence': Sequence, 'Middle Merger': Middle, 'Odd - Even': odd_even, 'Cut': cut, 'Spin Right': Spin_right}
+            merging_style = {'Sequence': Sequence, 'Middle Merger': Middle, 'Odd - Even': odd_even, 'Cut': cut, 'Spin Left': Spin_left, 'Spin Right': Spin_right}
             new_file_name = merge_functions.merge(first_path, second_path, saving_path=saving_path,
                                                   first_pdf_leads=True, User_named=user_named_file, merging_style=merging_style, start_page=start_page, stop_page=stop_page)
-            if not new_file_name.endswith(
-                    '.pdf'):  # if the file was created the return will be its new name others wise there is a problem
-                sg.popup_error('something went wrong: ', new_file_name)  # Shows red error button
+            if not new_file_name.endswith('.pdf'):  # if the file was created the return will be its new name others wise there is a problem
+                sg.popup_error('something went wrong: ', new_file_name, line_width=100)  # Shows red error button
                 continue
             else:
                 sg.popup('%s was successfully created' % new_file_name)
