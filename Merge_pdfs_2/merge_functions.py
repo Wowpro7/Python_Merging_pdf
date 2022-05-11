@@ -12,10 +12,12 @@ def check_files_type_validity(first_pdf_path=None, second_pdf_path=None):
     Files_are_valid = 'True'  # this way, because walking around with booleans was too much time consuming, and its
     # 03:16am, so deal with it_:)
     if first_pdf_path is not None:
+        first_pdf_path = first_pdf_path.lower()
         if not first_pdf_path.endswith('.pdf'):
             Files_are_valid = first_pdf_path
 
     if second_pdf_path is not None:
+        second_pdf_path = second_pdf_path.lower()
         if not second_pdf_path.endswith('.pdf'):
             if Files_are_valid == 'True':
                 Files_are_valid = second_pdf_path
@@ -51,6 +53,8 @@ def check_files_accessibility(first_pdf_path, second_pdf_path):  #
         return temp_dict, Error_message
     except FileNotFoundError as exp:
         return temp_dict, str(exp)
+    except OSError:
+	    return temp_dict, 'Your file source path is invalid, please check it'
 
 
 def create_new_file_name(User_named, first_pdf_leads, first_pdf_path, second_pdf_path):
